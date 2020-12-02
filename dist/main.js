@@ -1,0 +1,1 @@
+!function(){const n=document.getElementById("app");console.log(n)}();
