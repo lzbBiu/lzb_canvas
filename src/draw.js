@@ -4,6 +4,10 @@ function angleToRadian(angle) {
     return angle * Math.PI / 180
 }
 
+// TODO: 如果两个小球进入到彼此内部，需要更大的速度将两球冲开，否则两个球就会贴合在一起，不断交换速度，导致两球滚动，一旦冲开则恢复到之前的速度
+
+// TODO: 将所有 canvas 渲染到离屏 canvas 上，最后同意绘制到一个 canvas 上展示
+
 export default class Drawing {
     constructor(width,height,root){
         // 画布
@@ -58,11 +62,10 @@ export default class Drawing {
         const layout = new Layout(id, this.width, this.height, this.root);
         layout.draw = ball;
         this.layouts[id] = layout;
-        this.drawBall(id);
+        this.drawBall(layout);
         return layout;
     }
-    drawBall(id) {
-        const layout = this.layouts[id];
+    drawBall(layout) {
         const ctx = layout.ctx;
         ctx.fillStyle = layout.draw.fillColor;
         ctx.beginPath();
@@ -74,55 +77,93 @@ export default class Drawing {
     launchBall(id, v, angle) {
         const layout = this.layouts[id];
         layout.angle = angle;
-        layout.xv = parseFloat(parseFloat(v * Math.cos(angleToRadian(layout.angle))).toFixed(2));
-        layout.yv = parseFloat(parseFloat(v * Math.sin(angleToRadian(layout.angle))).toFixed(2));
+        this.angleToSpeed(layout, v, angle);
     }
-    updateBallPosition(id) {
-        // 根据角度大小重新计算 x 与 y
-        const layout = this.layouts[id];
+    angleToSpeed(layout,v,angle){
+        layout.vx = parseFloat(parseFloat(v * Math.cos(angleToRadian(layout.angle))).toFixed(2));
+        layout.vy = parseFloat(parseFloat(v * Math.sin(angleToRadian(layout.angle))).toFixed(2));
+    }
+    updateBallPosition(layout) {
         // 这里重新计算了 layout 的 angle
-        layout.draw.x += layout.xv;
-        layout.draw.y += layout.yv;
-        this.watchRebound(layout)
+        layout.draw.x += layout.vx;
+        layout.draw.y += layout.vy;
         layout.clearCurrentLayout();
-        this.drawBall(id)
+        this.drawBall(layout)
     }
-    watchRebound(layout) {
-        this.watchLeftBound(layout);
-        this.watchRightBound(layout);
-        this.watchTopBound(layout);
-        this.watchBottomBound(layout);
+    checkBounds(layout) {
+        this.checkLeftBound(layout);
+        this.checkRightBound(layout);
+        this.checkTopBound(layout);
+        this.checkBottomBound(layout);
     }
 
-    watchLeftBound(layout) {
+    checkLeftBound(layout) {
         // 检查是否与左边框相撞
         if(layout.draw.x - layout.draw.r <= 0){
-            layout.xv = -layout.xv;
+            if(layout.vx < 0) {
+                layout.vx = -layout.vx;
+            }
         }
     }
-    watchRightBound(layout) {
+    checkRightBound(layout) {
         // 检查是否与右边框相撞
         if(layout.draw.x + layout.draw.r >= this.width){
-            layout.xv = -layout.xv;
+            if(layout.vx > 0) {
+                layout.vx = -layout.vx;
+            }
         }
     }
-    watchTopBound(layout) {
+    checkTopBound(layout) {
         // 检查是否与上边框相撞
         if(layout.draw.y - layout.draw.r <= 0){
-            layout.yv = -layout.yv;
+            if(layout.vy < 0){
+                layout.vy = -layout.vy;
+            }
         }
     }
-    watchBottomBound(layout) {
+    checkBottomBound(layout) {
         // 检查是否与下边框相撞
         if(layout.draw.y + layout.draw.r >= this.height){
-            layout.yv = -layout.yv;
+            if(layout.vy > 0){
+                layout.vy = -layout.vy;
+            }
         }
+    }
+    watchBalls() {
+        Object.values(this.layouts).forEach((layout,index) => {
+            // 更新小球位置
+            this.updateBallPosition(layout);
+            // 判断小球之间是否相撞，如果相撞
+            this.checkBall(layout,index);
+            // 判断小球是否撞墙
+            this.checkBounds(layout);
+        })
+    }
+    checkBall(layout,index) {
+        // 将当前 layout 与 index 后的 小球做对比
+        Object.values(this.layouts).forEach((item,i)=>{
+            // 从下一位开始计算
+            if(i > index){
+                if(Math.pow((layout.draw.x - item.draw.x), 2) + Math.pow((layout.draw.y - item.draw.y), 2) <= Math.pow((layout.draw.r + item.draw.r), 2)) {
+                    this.ballsRebound(layout, item)
+                }
+            }
+        })
+    }
+    ballsRebound(ballA,ballB) {
+        const vx = ballA.vx;
+        const vy = ballA.vy;
+
+        ballA.vx = ballB.vx;
+        ballB.vx = vx;
+
+        ballA.vy = ballB.vy;
+        ballB.vy = vy;
+
     }
     startAnimation() {
         const step = (timestamp) => {
-            Object.keys(this.layouts).forEach(id => {
-                this.updateBallPosition(id)
-            })
+            this.watchBalls();
             window.requestAnimationFrame(step)
         }
         window.requestAnimationFrame(step)
