@@ -8,6 +8,8 @@ function angleToRadian(angle) {
 
 // TODO: 将所有 canvas 渲染到离屏 canvas 上，最后同意绘制到一个 canvas 上展示
 
+// TODO: canvas 分层是为了方便隔离一些不需要重新绘制的图像，如果小球全部都需要重新绘制，那么可以绘制到一个 canvas 上，而不是创建多个 canvas
+
 export default class Drawing {
     constructor(width,height,root){
         // 画布
